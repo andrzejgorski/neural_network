@@ -11,6 +11,19 @@ def sigmoid(x, derivative=False):
         return 1 / (1 + np.exp(-x))
 
 
+def softmax(x, derivative=False):
+    if not derivative:
+        return np.exp(x) / float(sum(np.exp(x)))
+    sm = x.reshape((-1, 1))
+    return np.diag(x) - np.dot(sm, sm.T)
+
+
+def ReLU(x, derivative=False):
+    if not derivative:
+        return max(0, x)
+    return 1 if x > 0 else 0
+
+
 def np_init():
     np.random.seed(1)
 
@@ -140,4 +153,3 @@ def create_simple_dataset():
 nn = NeutralNetwork([3, 3, 1])
 nn.load_weights('weights.txt')
 nn.learn(create_simple_dataset())
-# nn.save_weights('w2.txt')
