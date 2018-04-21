@@ -20,8 +20,8 @@ def softmax(x, derivative=False):
 
 def ReLU(x, derivative=False):
     if not derivative:
-        return max(0, x)
-    return 1 if x > 0 else 0
+        return np.array([max(0, y) for y in x])
+    return np.array([1 if y > 0 else 0 for y in x])
 
 
 def np_init():
