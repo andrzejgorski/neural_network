@@ -74,12 +74,11 @@ class Layer(object):
             first_c=self.input_size+1
         )
 
-        self.activation_function(self.mid_value, self.output_value)
+        self.activation_function.calc(self.mid_value, self.output_value)
 
     def calc_errors(self):
         derivatives = np.zeros((self.output_size, self.output_size))
-        self.activation_function(
-            self.output_value, derivatives, derivative=True)
+        self.activation_function.derivative(self.output_value, derivatives)
 
         matrix_mult(
             first=derivatives,
@@ -120,32 +119,32 @@ class Layer(object):
 
     def feed_output(self, proper_output):
         for i in range(self.output_size):
-            self.output_error[i] = self.output_value[i] - proper_output[0][i]
+            self.output_error[i] = self.output_value[i] - proper_output[i]
 
 
 class NeuralNetworkLayered(object):
     def __init__(self, layers, act_func=None, last_act_func=None):
-        act_func = act_func or sigmoid
-        last_act_func = last_act_func or id_
+        self.act_func = act_func or sigmoid
+        self.last_act_func = last_act_func or id_
 
         layers_len = len(layers)
         self.layers = [Layer(
             layers[0],
             layers[1],
-            activation_function=act_func
+            activation_function=self.act_func
         )]
         for i in range(1, layers_len - 2):
             self.layers.append(Layer(
                 layers[i],
                 layers[i + 1],
-                activation_function=act_func,
+                activation_function=self.act_func,
                 previous=self.layers[i - 1]
             ))
 
         self.layers.append(Layer(
             layers[layers_len - 2],
             layers[layers_len - 1],
-            activation_function=last_act_func,
+            activation_function=self.last_act_func,
             previous=self.layers[layers_len - 3]
         ))
 
@@ -169,17 +168,10 @@ class NeuralNetworkLayered(object):
 
     def calc(self, dataset):
         for i in range(self.layers[0].input_size):
-            self.layers[0].input_value[i][0] = dataset[0][0][i]
+            self.layers[0].input_value[i][0] = dataset[0][i]
         for layer in self.layers:
             layer.calc()
         return self.layers[-1].output_value
 
     def get_weights(self):
         return [layer.weights for layer in self.layers]
-
-
-# Move to tests
-def check_equal(arr1, arr2):
-    for row1, row2 in zip(arr1, arr2):
-        for cell1, cell2 in zip(row1, row2):
-            assert abs(cell1 - cell2) < 0.000001
