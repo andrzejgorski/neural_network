@@ -1,12 +1,6 @@
 from collections import deque
 import numpy as np
-
-
-def softmax(x, derivative=False):
-    if not derivative:
-        return np.exp(x) / float(sum(np.exp(x)))
-    sm = x.reshape((-1, 1))
-    return np.diag(x) - np.dot(sm, sm.T)
+from activation_functions import id_, sigmoid
 
 
 class Weights(object):
@@ -21,7 +15,8 @@ class Weights(object):
         with open(filename, 'w') as f:
             f.write(str(len(self._weights)) + self.endl)
             for weight in self._weights:
-                f.write('{} {}'.format(len(weight), len(weight[0])) + self.endl)
+                f.write(
+                    '{} {}'.format(len(weight), len(weight[0])) + self.endl)
                 for row in weight:
                     f.write(' '.join(str(f) for f in row) + self.endl)
 
@@ -42,32 +37,9 @@ class Weights(object):
                 self._weights.append(np.array(list_input))
 
 
-def sigmoid2(input_, output_, derivative=False):
-    if not derivative:
-        for i in range(len(input_)):
-            output_[i] = 1.0 / (1 + np.exp(-input_[i]))
-    else:
-        for i in range(len(output_)):
-            output_[i][i] = input_[i] * (1 - input_[i])
-
-
-def id_(input_, output_, derivative=False):
-    if not derivative:
-        for i in range(len(input_)):
-            output_[i] = input_[i]
-    else:
-        for i in range(len(output_)):
-            output_[i][i] = 1
-
-
-def ReLU(x, derivative=False):
-    if not derivative:
-        return np.array([max(0, y) for y in x])
-    return np.array([1 if y > 0 else 0 for y in x])
-
-
 def matrix_mult(first, second, out, first_r, second_c, first_c,
-                t_first=False, t_second=False, t_out=False, shift_second=False):
+                t_first=False, t_second=False, t_out=False,
+                shift_second=False):
     for b in range(first_r):
         for c in range(second_c):
             if not t_out:
@@ -103,7 +75,7 @@ class Layer(object):
         self.input_size = input_size
         self.output_size = output_size
         self.alpha = alpha
-        self.activation_function = activation_function or sigmoid2
+        self.activation_function = activation_function or sigmoid
         self.previous = previous
 
         # input layer
@@ -187,7 +159,7 @@ class Layer(object):
 
 class NeutralNetworkLayered(object):
     def __init__(self, layers, act_func=None, last_act_func=None):
-        act_func = act_func or sigmoid2
+        act_func = act_func or sigmoid
         last_act_func = last_act_func or id_
 
         layers_len = len(layers)
