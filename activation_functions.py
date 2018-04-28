@@ -2,7 +2,8 @@
 
 def softmax(x, derivative=False):
     if not derivative:
-        return np.exp(x) / float(sum(np.exp(x)))
+        shifted = x - max(x)
+        return np.exp(shifted) / float(sum(np.exp(shifted)))
     sm = x.reshape((-1, 1))
     return np.diag(x) - np.dot(sm, sm.T)
 
