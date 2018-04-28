@@ -123,7 +123,7 @@ class Layer(object):
             self.output_error[i] = self.output_value[i] - proper_output[0][i]
 
 
-class NeutralNetworkLayered(object):
+class NeuralNetworkLayered(object):
     def __init__(self, layers, act_func=None, last_act_func=None):
         act_func = act_func or sigmoid
         last_act_func = last_act_func or id_
