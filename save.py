@@ -1,30 +1,33 @@
 import numpy as np
+from neural_network import NeuralNetworkLayered
 
 
-class Weights(object):
+class NeuralNetworkLoader(object):
     endl = '\n'
-    def __init__(self, weights=None):
-        self._weights = weights or []
 
-    def __getitem__(self, key):
-        return self._weights[key]
-
-    def save_weights(self, filename):
+    @classmethod
+    def save(cls, nnl, filename):
+        weights = nnl.get_weights()
         with open(filename, 'w') as f:
-            f.write(str(len(self._weights)) + self.endl)
-            for weight in self._weights:
+            f.write(str(len(weights)) + cls.endl)
+            for weight in weights:
                 f.write(
-                    '{} {}'.format(len(weight), len(weight[0])) + self.endl)
+                    '{} {}'.format(len(weight), len(weight[0])) + cls.endl)
                 for row in weight:
-                    f.write(' '.join(str(f) for f in row) + self.endl)
+                    f.write(' '.join(str(f) for f in row) + cls.endl)
 
-    def load_weights(self, filename):
-        self._weights = []
+    @classmethod
+    def load(cls, filename):
+        layers = []
+        weights = []
         with open(filename, 'r') as f:
-            layers = int(f.readline())
-            for _ in range(layers):
+            layers_num = int(f.readline())
+            for _ in range(layers_num):
                 list_input = []
-                rows, _ = (int(v) for v in f.readline().split(' '))
+                rows, columns = (int(v) for v in f.readline().split(' '))
+                if not layers:
+                    layers.append(columns - 1)
+                layers.append(rows)
                 for __ in range(rows):
                     new_row = np.array(
                         [float(numb) for numb in f.readline().split(' ')],
@@ -32,8 +35,8 @@ class Weights(object):
                     )
                     list_input.append(new_row)
 
-                self._weights.append(np.array(list_input))
+                weights.append(np.array(list_input))
 
-
-def get_weights(nnl):
-    return [layer.weights for layer in nnl.layers]
+        nn = NeuralNetworkLayered(layers)
+        nn.feed_weights(weights)
+        return nn
