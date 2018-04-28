@@ -1,3 +1,4 @@
+from collections import deque
 import numpy as np
 
 
@@ -58,7 +59,6 @@ class NeutralNetworkCalculation(object):
                 self.final_output = next_layer
 
             self.layer_outputs.append(sigmoid(next_layer))
-        print self.final_output
         return self.final_output
 
 
@@ -76,10 +76,12 @@ class BackPropagation(NeutralNetworkCalculation):
             sigmoid_derivative = sigmoid(
                 self.layer_outputs[layer_ix], derivative=True)
 
+            # output_error in new implementaion
             weights_derivative = np.dot(
                 last_error_layer, self._weights[layer_ix].T[:, 1:])
 
             last_error_layer = sigmoid_derivative * weights_derivative
+            # last error is mid_error in new implementation
             self._layer_errors.append(last_error_layer)
 
         self._layer_errors.reverse()
@@ -129,6 +131,13 @@ class Weights(object):
                     list_input.append(new_row)
 
                 self._weights.append(np.array(list_input))
+
+    def swap(self):
+        for ix in range(len(self._weights)):
+            tmp = deque(self._weights[ix])
+            tmp.rotate(-1)
+            self._weights[ix] = np.array(tmp)
+
 
 
 class NeutralNetwork(object):
@@ -199,7 +208,7 @@ def sigmoid2(input_, output_, derivative=False):
         for i in range(len(input_)):
             output_[i] = 1.0 / (1 + np.exp(-input_[i]))
     else:
-        for i in range(len(input_)):
+        for i in range(len(output_)):
             output_[i][i] = input_[i] * (1 - input_[i])
 
 
@@ -208,16 +217,35 @@ def id_(input_, output_, derivative=False):
         for i in range(len(input_)):
             output_[i] = input_[i]
     else:
-        for i in range(len(input_)):
-            output_[i][i] = input_[i] * (1 - input_[i])
+        for i in range(len(output_)):
+            output_[i][i] = 1
+            # output_[i][i] = input_[i]
 
 
-def matrix_mult(first, second, out, first_r, second_c, first_c):
+def matrix_mult(first, second, out, first_r, second_c, first_c, transpose=False):
     for b in range(first_r):
         for c in range(second_c):
-            out[b][c] = 0
-            for a in range(first_c):
-                out[b][c] += first[b][a] * second[a][c]
+            if not transpose:
+                out[b][c] = 0
+                for a in range(first_c):
+                    out[b][c] += first[b][a] * second[a][c]
+            else:
+                out[b][c] = 0
+                for a in range(first_c):
+                    out[b][c] += first[b][a] * second[c][a]
+
+
+def ss_matrix_mult(first, second, out, first_r, second_c, first_c, transpose=False):
+    for b in range(first_r):
+        for c in range(second_c):
+            if not transpose:
+                out[b][c] = 0
+                for a in range(first_c):
+                    out[b][c] += first[b][a] * second[a][c + 1]
+            else:
+                out[c][b] = 0
+                for a in range(first_c):
+                    out[c][b] += first[a][b] * second[a][c + 1]
 
 
 class Layer(object):
@@ -261,8 +289,49 @@ class Layer(object):
 
         self.activation_function(self.mid_value, self.output_value)
 
-    def backpropagation(self):
-        pass
+    def calc_errors(self):
+        derivatives = np.zeros((self.output_size, self.output_size))
+        self.activation_function(
+            self.output_value, derivatives, derivative=True)
+
+        matrix_mult(
+            first=derivatives,
+            second=self.output_error,
+            out=self.mid_error,
+            first_r=self.output_size,
+            second_c=1,
+            first_c=self.output_size
+        )
+
+        ss_matrix_mult(
+            first=self.mid_error,
+            second=self.weights,
+            out=self.input_error,
+            first_r=1,
+            second_c=self.input_size,
+            first_c=self.output_size,
+            transpose=True
+        )
+
+    def calc_gradient(self):
+        matrix_mult(
+            first=self.mid_error,
+            second=self.input_value,
+            out=self.gradient,
+            first_r=self.output_size,
+            second_c=self.input_size + 1,
+            first_c=1,
+            transpose=True
+        )
+
+    def update_weights(self):
+        for i in range(self.output_size):
+            for j in range(self.input_size + 1):
+                self.weights[i][j] -= self.alpha * self.gradient[i][j]
+
+    def feed_output(self, proper_output):
+        for i in range(self.output_size):
+            self.output_error[i] = self.output_value[i] - proper_output[0][i]
 
 
 class NeutralNetworkLayered(object):
@@ -297,6 +366,15 @@ class NeutralNetworkLayered(object):
                 for j in range(len(weight[0])):
                     layer.weights[j][i] = weight[i][j]
 
+    def learn(self, dataset):
+        output = self.calc(dataset)
+        self.layers[-1].feed_output(dataset[1])
+        for layer in reversed(self.layers):
+            layer.calc_errors()
+        for layer in reversed(self.layers):
+            layer.calc_gradient()
+            layer.update_weights()
+
     def calc(self, dataset):
         for i in range(self.layers[0].input_size):
             self.layers[0].input_value[i][0] = dataset[0][0][i]
@@ -308,10 +386,20 @@ class NeutralNetworkLayered(object):
 nn = NeutralNetwork([3, 3, 1])
 nn.load_weights('weights.txt')
 dataset = create_simple_dataset()
-nn.calc(dataset)
+nn.learn(dataset)
 
 weights = Weights()
 weights.load_weights('weights.txt')
 nnl = NeutralNetworkLayered([3, 3, 1])
 nnl.feed_weights(weights)
-print(nnl.calc(dataset))
+nnl.learn(dataset)
+
+
+def check_equal(arr1, arr2):
+    for row1, row2 in zip(arr1, arr2):
+        for cell1, cell2 in zip(row1, row2):
+            assert abs(cell1 - cell2) < 0.000001
+
+
+check_equal(nnl.layers[0].weights, nn._weights[0].T)
+check_equal(nnl.layers[1].weights, nn._weights[1].T)
