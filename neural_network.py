@@ -222,30 +222,35 @@ def id_(input_, output_, derivative=False):
             # output_[i][i] = input_[i]
 
 
-def matrix_mult(first, second, out, first_r, second_c, first_c, transpose=False):
+def matrix_mult(first, second, out, first_r, second_c, first_c,
+                t_first=False, t_second=False, t_out=False, shift_second=False):
     for b in range(first_r):
         for c in range(second_c):
-            if not transpose:
+            if not t_out:
                 out[b][c] = 0
-                for a in range(first_c):
-                    out[b][c] += first[b][a] * second[a][c]
-            else:
-                out[b][c] = 0
-                for a in range(first_c):
-                    out[b][c] += first[b][a] * second[c][a]
-
-
-def ss_matrix_mult(first, second, out, first_r, second_c, first_c, transpose=False):
-    for b in range(first_r):
-        for c in range(second_c):
-            if not transpose:
-                out[b][c] = 0
-                for a in range(first_c):
-                    out[b][c] += first[b][a] * second[a][c + 1]
             else:
                 out[c][b] = 0
-                for a in range(first_c):
-                    out[c][b] += first[a][b] * second[a][c + 1]
+
+            for a in range(first_c):
+                if not t_first:
+                    ff = first[b][a]
+                else:
+                    ff = first[a][b]
+
+                if shift_second:
+                    second_c_iterator = c + 1
+                else:
+                    second_c_iterator = c
+
+                if not t_second:
+                    ss = second[a][second_c_iterator]
+                else:
+                    ss = second[second_c_iterator][a]
+
+                if not t_out:
+                    out[b][c] += ff * ss
+                else:
+                    out[c][b] += ff * ss
 
 
 class Layer(object):
@@ -303,14 +308,16 @@ class Layer(object):
             first_c=self.output_size
         )
 
-        ss_matrix_mult(
+        matrix_mult(
             first=self.mid_error,
             second=self.weights,
             out=self.input_error,
             first_r=1,
             second_c=self.input_size,
             first_c=self.output_size,
-            transpose=True
+            t_first=True,
+            t_out=True,
+            shift_second=True
         )
 
     def calc_gradient(self):
@@ -321,7 +328,7 @@ class Layer(object):
             first_r=self.output_size,
             second_c=self.input_size + 1,
             first_c=1,
-            transpose=True
+            t_second=True
         )
 
     def update_weights(self):
