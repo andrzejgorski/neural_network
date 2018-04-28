@@ -4,11 +4,10 @@ import numpy as np
 class softmax(object):
     @classmethod
     def calc(cls, input_, output_):
-        if not derivative:
-            shifted = input_ - max(input_)
-            result = np.exp(shifted) / float(sum(np.exp(shifted)))
-            for i in range(len(output_)):
-                output_[i] = result[i]
+        shifted = input_ - max(input_)
+        result = np.exp(shifted) / float(sum(np.exp(shifted)))
+        for i in range(len(result)):
+            output_[i] = result[i]
 
     @classmethod
     def derivative(cls, input_, output_):
@@ -23,12 +22,12 @@ class ReLU(object):
     @classmethod
     def calc(cls, input_, output_):
         result = np.array([max(0, y) for y in input_])
-        for i in range(len(output_)):
+        for i in range(len(result)):
             output_[i] = result[i]
 
     @classmethod
-    def derivative(cls, x):
-        result = np.array([1 if y > 0 else 0 for y in x])
+    def derivative(cls, input_, output_):
+        result = np.array([1 if y > 0 else 0 for y in input_])
         for i in range(len(output_)):
             output_[i][i] = result[i]
 

@@ -2,19 +2,26 @@ import numpy as np
 from neural_network import NeuralNetworkLayered
 
 
+def format_nn(nnl):
+    weights = nnl.get_weights()
+    # result = [nnl.act_func.name + ' ' + nnl.last_act_func.name]
+    result = []
+    result.append(str(len(weights)))
+    for weight in weights:
+        result.append(
+            '{} {}'.format(len(weight), len(weight[0])))
+        for row in weight:
+            result.append(' '.join(str(f) for f in row))
+    return '\n'.join(result)
+
+
 class NeuralNetworkLoader(object):
     endl = '\n'
 
     @classmethod
     def save(cls, nnl, filename):
-        weights = nnl.get_weights()
         with open(filename, 'w') as f:
-            f.write(str(len(weights)) + cls.endl)
-            for weight in weights:
-                f.write(
-                    '{} {}'.format(len(weight), len(weight[0])) + cls.endl)
-                for row in weight:
-                    f.write(' '.join(str(f) for f in row) + cls.endl)
+            f.write(nnl)
 
     @classmethod
     def load(cls, filename):

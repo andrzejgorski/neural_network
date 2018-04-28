@@ -1,6 +1,9 @@
 from collections import deque
 import numpy as np
-from activation_functions import id_, sigmoid
+from activation_functions import (
+    ReLU,
+    softmax,
+)
 
 
 def matrix_mult(first, second, out, first_r, second_c, first_c,
@@ -41,7 +44,7 @@ class Layer(object):
         self.input_size = input_size
         self.output_size = output_size
         self.alpha = alpha
-        self.activation_function = activation_function or sigmoid
+        self.activation_function = activation_function or ReLU
         self.previous = previous
 
         # input layer
@@ -124,8 +127,8 @@ class Layer(object):
 
 class NeuralNetworkLayered(object):
     def __init__(self, layers, act_func=None, last_act_func=None):
-        self.act_func = act_func or sigmoid
-        self.last_act_func = last_act_func or id_
+        self.act_func = act_func or ReLU
+        self.last_act_func = last_act_func or softmax
 
         layers_len = len(layers)
         self.layers = [Layer(
