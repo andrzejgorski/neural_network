@@ -174,7 +174,7 @@ class NeuralNetworkLayered(object):
             layer.calc()
         return self.layers[-1].output_value
 
-    def get_weights(nnl):
+    def get_weights(self):
         return [layer.weights for layer in self.layers]
 
 
