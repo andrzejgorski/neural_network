@@ -27,7 +27,7 @@ class ReLU(object):
 
     @classmethod
     def derivative(cls, input_, output_):
-        result = np.array([1 if y > 0 else 0 for y in input_])
+        result = np.array([1 if y >= 0 else 0 for y in input_])
         for i in range(len(output_)):
             output_[i][i] = result[i]
 
