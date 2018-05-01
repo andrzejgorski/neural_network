@@ -9,12 +9,34 @@ using namespace std;
 typedef vector< double > matrix_column;
 typedef vector< matrix_column > matrix;
 
+
 matrix create_matrix(int rows, int columns, double default_value){
     return matrix(rows, matrix_column(columns, default_value));
 }
 
 matrix create_matrix(int rows, int columns){
     return create_matrix(rows, columns, 0);
+}
+
+matrix to_matrix(matrix_column input) {
+    matrix result = create_matrix(input.size(), 1);
+    for (int i = 0; i < input.size(); i++ ) {
+        result[i][0] = input[i];
+    }
+    return result;
+}
+
+void print_m(matrix mat) {
+    cout << "----- Printing matrix -----" << endl;
+    cout << "Rows: " << mat.size() << endl;
+    cout << "Columns: " << mat[0].size() << endl;
+    for (int i = 0; i < mat.size(); i++ ) {
+        for (int j = 0; j < mat[0].size(); j++ ) {
+            cout << mat[i][j] << " ";
+        }
+        cout << endl;
+    }
+
 }
 
 
@@ -24,9 +46,7 @@ void matrix_mult(matrix& first, matrix& second, matrix& out,
         for (int c = 0; c < second_c; c++) {
             out[b][c] = 0;
             for (int a = 0; a < first_c; a++) {
-                double ss = second[a][c];
-                double ff = first[b][a];
-                out[b][c] = first[b][a] * second[a][c];
+                out[b][c] += first[b][a] * second[a][c];
             }
         }
     }
@@ -39,7 +59,7 @@ void matrix_mult_tf_to_ss(matrix& first, matrix& second, matrix& out,
         for (int c = 0; c < second_c; c++) {
             out[c][b] = 0;
             for (int a = 0; a < first_c; a++) {
-                out[c][b] = first[a][b] * second[a][c];
+                out[c][b] += first[a][b] * second[a][c];
             }
         }
     }
@@ -52,7 +72,7 @@ void matrix_mult_ts(matrix& first, matrix& second, matrix& out,
         for (int c = 0; c < second_c; c++) {
             out[b][c] = 0;
             for (int a = 0; a < first_c; a++) {
-                out[b][c] = first[b][a] * second[c][a];
+                out[b][c] += first[b][a] * second[c][a];
             }
         }
     }
@@ -79,17 +99,39 @@ class Layer {
         weights = create_matrix(output_size, input_size + 1);
         gradients = create_matrix(output_size, input_size + 1);
     }
-    virtual void calc() {};
+    Layer () {};
+    virtual matrix calc() {};
     virtual void print();
     void set_correct_output(matrix outputs) {
         for (int i = 0; i < output_size; i++) {
-            output_error[i][0] = abs(outputs[i][0] - output_value[i][0]);
+            double tmp = outputs[i][0] - output_value[i][0];
+            output_error[i][0] = tmp * tmp;
         }
     };
 };
 
 
 void Layer::print() {
+    cout << "mid_value: " << endl;
+    for (int i = 0; i < output_size; i ++) {
+        cout << mid_value[i][0] << " ";
+    }
+    cout << endl;
+    cout << "mid_error: " << endl;
+    for (int i = 0; i < output_size; i ++) {
+        cout << mid_error[i][0] << " ";
+    }
+    cout << endl;
+    cout << "out_value: " << endl;
+    for (int i = 0; i < output_size; i ++) {
+        cout << output_value[i][0] << " ";
+    }
+    cout << endl;
+    cout << "out_error: " << endl;
+    for (int i = 0; i < output_size; i ++) {
+        cout << output_error[i][0] << " ";
+    }
+    cout << endl;
     cout << "output_size: " << output_size << " ";
     cout << "input_size: " << input_size << endl;
     cout << "weights: " << endl;
@@ -106,26 +148,6 @@ void Layer::print() {
         }
         cout << endl;
     }
-    cout << "out_value: " << endl;
-    for (int i = 0; i < output_size; i ++) {
-        cout << output_value[i][0] << " ";
-    }
-    cout << endl;
-    cout << "out_error: " << endl;
-    for (int i = 0; i < output_size; i ++) {
-        cout << output_error[i][0] << " ";
-    }
-    cout << endl;
-    cout << "mid_value: " << endl;
-    for (int i = 0; i < output_size; i ++) {
-        cout << mid_value[i][0] << " ";
-    }
-    cout << endl;
-    cout << "mid_error: " << endl;
-    for (int i = 0; i < output_size; i ++) {
-        cout << mid_error[i][0] << " ";
-    }
-    cout << endl;
 }
 
 
@@ -135,15 +157,17 @@ class FirstLayer:public Layer {
     public:
     FirstLayer (int, int);
     void print ();
-    void calc ();
+    matrix calc ();
     void init_input(matrix input) {
-        input_value = input;
+        for (int i = 0; i < input_size; i++) {
+            input_value[i][0] = input[i][0];
+        }
     }
     void backpropagation ();
 };
 
 
-void FirstLayer::calc() {
+matrix FirstLayer::calc() {
     matrix_mult(
         weights,
         input_value,
@@ -160,13 +184,14 @@ void FirstLayer::calc() {
             output_value[i][0] = 0;
         }
     }
+    return output_value;
 }
 
 
 void FirstLayer::backpropagation() {
     for (int i = 0; i < output_size; i++) {
         if (mid_value[i][0] >= 0) {
-            mid_error[i][0] = mid_value[i][0] * output_error[i][0];
+            mid_error[i][0] = output_error[i][0];
         } else {
             mid_error[i][0] = 0;
         }
@@ -194,12 +219,12 @@ FirstLayer::FirstLayer (int i_size, int o_size):
 
 
 void FirstLayer::print() {
-    Layer::print();
     cout << "input_value: " << endl;
     for (int i = 0; i < input_size + 1; i ++) {
         cout << input_value[i][0] << " ";
     }
     cout << endl;
+    Layer::print();
 }
 
 
@@ -211,12 +236,12 @@ class MidLayer:public Layer {
     Layer &previous;
     public:
     MidLayer (int i_size, int o_size, Layer &prev): Layer(i_size, o_size), previous{prev} {};
-    void calc();
+    matrix calc();
     void backpropagation();
 };
 
 
-void MidLayer::calc() {
+matrix MidLayer::calc() {
     matrix_mult(
         weights,
         previous.output_value,
@@ -233,13 +258,14 @@ void MidLayer::calc() {
             output_value[i][0] = 0;
         }
     }
+    return output_value;
 }
 
 
 void MidLayer::backpropagation() {
     for (int i = 0; i < output_size; i++) {
         if (mid_value[i][0] >= 0) {
-            mid_error[i][0] = mid_value[i][0] * output_error[i][0];
+            mid_error[i][0] = output_error[i][0];
         } else {
             mid_error[i][0] = 0;
         }
@@ -276,12 +302,12 @@ class LastLayer:public Layer {
     public:
     LastLayer (int i_size, int o_size, Layer &prev):
         Layer(i_size, o_size), previous{prev} {};
-    void calc();
+    matrix calc();
     void backpropagation();
 };
 
 
-void LastLayer::calc() {
+matrix LastLayer::calc() {
     matrix_mult(
         weights,
         previous.output_value,
@@ -308,6 +334,7 @@ void LastLayer::calc() {
     for (int i = 0; i < output_size; i++) {
         output_value[i][0] = (exponents[i][0]) / sum;
     }
+    return output_value;
 }
 
 
@@ -319,7 +346,7 @@ void LastLayer::backpropagation() {
             if (i != j) {
                 derivatives[j][i] = - mid_value[i][0] * mid_value[j][0];
             } else {
-                derivatives[j][i] = mid_value[i][0] * (1 - mid_value[j][0]);
+                derivatives[i][i] = mid_value[i][0] * (1 - mid_value[i][0]);
             }
         }
     }
@@ -360,12 +387,76 @@ void LastLayer::backpropagation() {
 }
 
 
+class NeuralNetwork {
+    public:
+    FirstLayer first;
+    vector< MidLayer > mids;
+    vector< LastLayer > _last;
+
+    matrix calc(matrix);
+    void backpropagation(matrix, matrix);
+    NeuralNetwork(vector <int>);
+    void print();
+};
+
+
+NeuralNetwork::NeuralNetwork (vector <int> layers):
+    first{FirstLayer(layers[0], layers[1])} {
+    // last{_last[0]} {
+    mids.push_back(MidLayer(layers[1], layers[2], first));
+    for (int i = 2; i < layers.size() - 2; i ++) {
+        mids.push_back(
+            MidLayer(layers[i], layers[i + 1], mids[mids.size() - 1]));
+    }
+    _last.push_back(
+        LastLayer(
+            layers[layers.size() - 2],
+            layers[layers.size() - 1],
+            mids[mids.size() - 1]
+        )
+    );
+}
+
+
+void NeuralNetwork::print () {
+    cout << "======== First Layer ========" << endl;
+    first.print();
+    for (int i = 0; i < mids.size(); i ++) {
+        cout << "======== Mid Layer no " << i + 1 << " ======== " << endl;
+        mids[i].print();
+    }
+    cout << "======== Last Layer ========" << endl;
+    _last[0].print();
+}
+
+
+matrix NeuralNetwork::calc(matrix input) {
+    first.init_input(input);
+    first.calc();
+    for (int i = 0; i < mids.size(); i ++) {
+        mids[i].calc();
+    }
+    return _last[0].calc();
+}
+
+
+void NeuralNetwork::backpropagation(matrix input, matrix proper_output) {
+    calc(input);
+    _last[0].set_correct_output(proper_output);
+    _last[0].backpropagation();
+    for (int i = mids.size() - 1; i >= 0; i --) {
+        mids[i].backpropagation();
+    }
+    first.backpropagation();
+}
+
+
 // Loading function
 
 
-void read_weigts(ifstream& file_stream, Layer& layer, int rows, int columns) {
+void read_weigts (ifstream& file_stream, Layer& layer, int rows, int columns) {
     for (int i = 0; i < rows; i ++) {
-        for (int j = 0; j < columns + 1; j ++) {
+        for (int j = 0; j < columns; j ++) {
             file_stream >> layer.weights[i][j];
         }
     }
@@ -402,35 +493,67 @@ FirstLayer load (ifstream& file_stream) {
 }
 
 
+void read_layer_weights (ifstream& file_stream, Layer &layer) {
+    int rows, columns;
+    file_stream >> rows;
+    file_stream >> columns;
+    read_weigts(file_stream, layer, rows, columns);
+}
+
+
+NeuralNetwork load_neural_network(ifstream& file_stream) {
+    int layers;
+    file_stream >> layers;
+    vector< int > layers_shape = vector< int > (layers, 0);
+    for (int i = 0; i < layers; i++) {
+        file_stream >> layers_shape[i];
+    }
+    NeuralNetwork neural_network = NeuralNetwork(layers_shape);
+    read_layer_weights(file_stream, neural_network.first);
+    for (int i = 0; i < neural_network.mids.size(); i++) {
+        read_layer_weights(file_stream, neural_network.mids[i]);
+    }
+    read_layer_weights(file_stream, neural_network._last[0]);
+    return neural_network;
+}
+
+
 int main()
 {
-    ifstream in_stream;
-    in_stream.open("test.in");
-    FirstLayer first_layer = load(in_stream);
-    first_layer.init_input(create_matrix(4, 1, -1));
-    first_layer.calc();
+    ifstream neural_network_stream;
+    neural_network_stream.open("tests/test1.nn");
+    NeuralNetwork neural_network = load_neural_network(neural_network_stream);
+    // print_m(neural_network.calc(to_matrix({0.6, 0.8, 0.2})));
+    // neural_network.print();
+    neural_network.backpropagation(to_matrix({0.6, 0.8, 0.2}), to_matrix({0, 0, 1}));
+    neural_network.print();
+    // ifstream in_stream;
+    // in_stream.open("test.in");
+    // FirstLayer first_layer = load(in_stream);
+    // first_layer.init_input(create_matrix(4, 1, -1));
+    // first_layer.calc();
 
-    ifstream mid_stream;
-    mid_stream.open("test_mid.in");
-    MidLayer mid_layer = load(mid_stream, first_layer);
-    mid_layer.calc();
+    // ifstream mid_stream;
+    // mid_stream.open("test_mid.in");
+    // MidLayer mid_layer = load(mid_stream, first_layer);
+    // mid_layer.calc();
 
-    ifstream last_stream;
-    last_stream.open("test_last.in");
-    LastLayer last_layer = load_last(last_stream, mid_layer);
-    last_layer.calc();
-    last_layer.set_correct_output(create_matrix(6, 1, 1));
+    // ifstream last_stream;
+    // last_stream.open("test_last.in");
+    // LastLayer last_layer = load_last(last_stream, mid_layer);
+    // last_layer.calc();
+    // last_layer.set_correct_output(create_matrix(6, 1, 1));
 
-    last_layer.backpropagation();
-    mid_layer.backpropagation();
-    first_layer.backpropagation();
+    // last_layer.backpropagation();
+    // mid_layer.backpropagation();
+    // first_layer.backpropagation();
 
-    first_layer.print();
-    mid_layer.print();
-    last_layer.print();
+    // first_layer.print();
+    // mid_layer.print();
+    // last_layer.print();
 
-    in_stream.close();
-    mid_stream.close();
-    last_stream.close();
+    // in_stream.close();
+    // mid_stream.close();
+    // last_stream.close();
     return 0;
 }

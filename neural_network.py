@@ -81,7 +81,7 @@ class Layer(object):
 
     def calc_errors(self):
         derivatives = np.zeros((self.output_size, self.output_size))
-        self.activation_function.derivative(self.output_value, derivatives)
+        self.activation_function.derivative(self.mid_value, derivatives)
 
         matrix_mult(
             first=derivatives,
@@ -100,8 +100,7 @@ class Layer(object):
             second_c=self.input_size,
             first_c=self.output_size,
             t_first=True,
-            t_out=True,
-            shift_second=True
+            t_out=True
         )
 
     def calc_gradient(self):
@@ -122,7 +121,8 @@ class Layer(object):
 
     def feed_output(self, proper_output):
         for i in range(self.output_size):
-            self.output_error[i] = self.output_value[i] - proper_output[i]
+            self.output_error[i] = (
+                (self.output_value[i] - proper_output[i]) ** 2)
 
 
 class NeuralNetworkLayered(object):
@@ -168,6 +168,10 @@ class NeuralNetworkLayered(object):
         for layer in reversed(self.layers):
             layer.calc_gradient()
             layer.update_weights()
+        first = self.layers[0]
+        mid = self.layers[1]
+        last = self.layers[-1]
+        import ipdb; ipdb.set_trace()
 
     def calc(self, dataset):
         for i in range(self.layers[0].input_size):

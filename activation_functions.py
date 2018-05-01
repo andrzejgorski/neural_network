@@ -12,7 +12,7 @@ class softmax(object):
     @classmethod
     def derivative(cls, input_, output_):
         sm = input_.reshape((-1, 1))
-        result = np.diag(input_) - np.dot(sm, sm.T)
+        result = np.diagflat(input_) - np.dot(sm, sm.T)
         for i in range(len(output_)):
             for j in range(len(output_[0])):
                 output_[i][j] = result[i][j]

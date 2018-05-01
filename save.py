@@ -29,9 +29,11 @@ class NeuralNetworkLoader(object):
         weights = []
         with open(filename, 'r') as f:
             layers_num = int(f.readline())
-            for _ in range(layers_num):
+            f.readline()
+            for _ in range(layers_num - 1):
                 list_input = []
                 rows, columns = (int(v) for v in f.readline().split(' '))
+                print rows, columns
                 if not layers:
                     layers.append(columns - 1)
                 layers.append(rows)
