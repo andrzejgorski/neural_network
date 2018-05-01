@@ -24,7 +24,22 @@ void matrix_mult(matrix& first, matrix& second, matrix& out,
         for (int c = 0; c < second_c; c++) {
             out[b][c] = 0;
             for (int a = 0; a < first_c; a++) {
+                double ss = second[a][c];
+                double ff = first[b][a];
                 out[b][c] = first[b][a] * second[a][c];
+            }
+        }
+    }
+}
+
+
+void matrix_mult_tf_to_ss(matrix& first, matrix& second, matrix& out,
+                          int first_r, int second_c, int first_c) {
+    for (int b = 0; b < first_r; b++) {
+        for (int c = 0; c < second_c; c++) {
+            out[c][b] = 0;
+            for (int a = 0; a < first_c; a++) {
+                out[c][b] = first[a][b] * second[a][c];
             }
         }
     }
@@ -237,11 +252,111 @@ void MidLayer::backpropagation() {
         input_size + 1,
         1
     );
+
+    matrix_mult_tf_to_ss(
+        mid_error,
+        weights,
+        previous.output_error,
+        1,
+        input_size,
+        output_size
+    );
+
     for (int i = 0; i < output_size; i ++) {
         for (int j = 0; j < input_size + 1; j ++) {
             weights[i][j] -= 0.1 * gradients[i][j];
         }
     }
+}
+
+
+class LastLayer:public Layer {
+    protected:
+    Layer &previous;
+    public:
+    LastLayer (int i_size, int o_size, Layer &prev):
+        Layer(i_size, o_size), previous{prev} {};
+    void calc();
+    void backpropagation();
+};
+
+
+void LastLayer::calc() {
+    matrix_mult(
+        weights,
+        previous.output_value,
+        mid_value,
+        output_size,
+        1,
+        input_size + 1
+    );
+
+    // Softmax stable
+    double max = mid_value[0][0];
+    double sum = 0;
+    matrix exponents = create_matrix(output_size, 1, 0);
+    for (int i = 0; i < output_size; i++) {
+        if (mid_value[i][0] > max) {
+            max = mid_value[i][0];
+        }
+    }
+    for (int i = 0; i < output_size; i++) {
+        exponents[i][0] = exp(mid_value[i][0] - max);
+        sum += exponents[i][0];
+    }
+
+    for (int i = 0; i < output_size; i++) {
+        output_value[i][0] = (exponents[i][0]) / sum;
+    }
+}
+
+
+void LastLayer::backpropagation() {
+    // Put here softmax derivatives
+    matrix derivatives = create_matrix(output_size, output_size, 0);
+    for (int i = 0; i < output_size; i++) {
+        for (int j = 0; j < output_size; j++) {
+            if (i != j) {
+                derivatives[j][i] = - mid_value[i][0] * mid_value[j][0];
+            } else {
+                derivatives[j][i] = mid_value[i][0] * (1 - mid_value[j][0]);
+            }
+        }
+    }
+
+    matrix_mult(
+        derivatives,
+        output_error,
+        mid_error,
+        output_size,
+        1,
+        output_size
+    );
+
+    matrix_mult_ts(
+        mid_error,
+        previous.output_value,
+        gradients,
+        output_size,
+        input_size + 1,
+        1
+    );
+
+    matrix_mult_tf_to_ss(
+        mid_error,
+        weights,
+        previous.output_error,
+        1,
+        input_size,
+        output_size
+    );
+
+    for (int i = 0; i < output_size; i ++) {
+        for (int j = 0; j < input_size + 1; j ++) {
+            weights[i][j] -= 0.1 * gradients[i][j];
+        }
+    }
+
 }
 
 
@@ -254,6 +369,16 @@ void read_weigts(ifstream& file_stream, Layer& layer, int rows, int columns) {
             file_stream >> layer.weights[i][j];
         }
     }
+}
+
+
+LastLayer load_last (ifstream& file_stream, Layer &prev) {
+    int rows, columns;
+    file_stream >> rows;
+    file_stream >> columns;
+    LastLayer new_layer = LastLayer(columns, rows, prev);
+    read_weigts(file_stream, new_layer, rows, columns);
+    return new_layer;
 }
 
 
@@ -282,19 +407,30 @@ int main()
     ifstream in_stream;
     in_stream.open("test.in");
     FirstLayer first_layer = load(in_stream);
-    // first_layer.init_input(create_matrix(4, 1, -1));
+    first_layer.init_input(create_matrix(4, 1, -1));
     first_layer.calc();
-    first_layer.print();
-    first_layer.set_correct_output(create_matrix(3, 1, 1));
-    first_layer.backpropagation();
 
     ifstream mid_stream;
     mid_stream.open("test_mid.in");
     MidLayer mid_layer = load(mid_stream, first_layer);
     mid_layer.calc();
+
+    ifstream last_stream;
+    last_stream.open("test_last.in");
+    LastLayer last_layer = load_last(last_stream, mid_layer);
+    last_layer.calc();
+    last_layer.set_correct_output(create_matrix(6, 1, 1));
+
+    last_layer.backpropagation();
     mid_layer.backpropagation();
+    first_layer.backpropagation();
+
+    first_layer.print();
     mid_layer.print();
+    last_layer.print();
+
     in_stream.close();
     mid_stream.close();
+    last_stream.close();
     return 0;
 }
