@@ -14,9 +14,7 @@ using namespace std;
 
 const int INPUT_SIZE = 4096;
 const int OUTPUT_SIZE = 62;
-// const int INPUTS = 4574;
-const int INPUTS = 1;
-
+const int INPUTS = 4574;
 
 typedef vector< double > matrix_column;
 typedef vector< matrix_column > matrix;
@@ -90,12 +88,6 @@ void matrix_mult_tf_to_ss(matrix& first, matrix& second, matrix& out,
 }
 
 
-double fRand(double fMin, double fMax) {
-    double f = (double)rand() / RAND_MAX;
-    return fMin + f * (fMax - fMin);
-}
-
-
 void matrix_mult_ts(matrix& first, matrix& second, matrix& out,
                     int first_r, int second_c, int first_c) {
     for (int b = 0; b < first_r; b++) {
@@ -109,21 +101,40 @@ void matrix_mult_ts(matrix& first, matrix& second, matrix& out,
 }
 
 
+bool cmp_matrix(matrix first, matrix second) {
+    for (int i = 0; i < first.size(); i++) {
+        for (int j = 0; j < first[0].size(); j++) {
+            if (first[i][j] != second[i][j]) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+
+double fRand(double fMin, double fMax) {
+    double f = (double)rand() / RAND_MAX;
+    return fMin + f * (fMax - fMin);
+}
+
+
 class Layer {
     public:
     int input_size, output_size;
-    double alpha;
+    double learning_rate;
     matrix mid_value, mid_error;
     matrix gradients;
 
     matrix output_value, output_error;
     matrix weights;
-    Layer (int i_size, int o_size): input_size{i_size}, output_size{o_size} {
+    Layer (int i_size, int o_size, double rate):
+            input_size{i_size}, output_size{o_size}, learning_rate{rate} {
         mid_value = create_matrix(output_size, 1);
         mid_error = create_matrix(output_size, 1);
         output_value = create_matrix(output_size + 1, 1, 1);
         output_error = create_matrix(output_size, 1);
-        weights = create_matrix(output_size, input_size + 1);
+        weights = create_matrix(output_size, input_size + 1, 1);
         gradients = create_matrix(output_size, input_size + 1);
     }
     Layer () {};
@@ -188,7 +199,7 @@ void Layer::print() {
 class FirstLayer:public Layer {
     public:
     matrix input_value;
-    FirstLayer (int, int);
+    FirstLayer (int, int, double);
     void print ();
     matrix calc ();
     void init_input(matrix input) {
@@ -239,14 +250,14 @@ void FirstLayer::backpropagation() {
     );
     for (int i = 0; i < output_size; i ++) {
         for (int j = 0; j < input_size + 1; j ++) {
-            weights[i][j] -= 0.1 * gradients[i][j];
+            weights[i][j] -= learning_rate * gradients[i][j];
         }
     }
 }
 
 
-FirstLayer::FirstLayer (int i_size, int o_size):
-        Layer (i_size, o_size) {
+FirstLayer::FirstLayer (int i_size, int o_size, double rate):
+        Layer (i_size, o_size, rate) {
     input_value = create_matrix(input_size + 1, 1, 1);
 }
 
@@ -267,7 +278,8 @@ void FirstLayer::print() {
 class MidLayer:public Layer {
     public:
     Layer *previous;
-    MidLayer (int i_size, int o_size, Layer &prev): Layer(i_size, o_size), previous{&prev} {};
+    MidLayer (int i_size, int o_size, double rate, Layer &prev):
+        Layer(i_size, o_size, rate), previous{&prev} {};
     MidLayer () {};
     matrix calc();
     void backpropagation();
@@ -323,7 +335,7 @@ void MidLayer::backpropagation() {
 
     for (int i = 0; i < output_size; i ++) {
         for (int j = 0; j < input_size + 1; j ++) {
-            weights[i][j] -= 0.1 * gradients[i][j];
+            weights[i][j] -= learning_rate * gradients[i][j];
         }
     }
 }
@@ -332,8 +344,11 @@ void MidLayer::backpropagation() {
 class LastLayer:public Layer {
     public:
     Layer *previous;
-    LastLayer (int i_size, int o_size, Layer &prev):
-        Layer(i_size, o_size), previous{&prev} {};
+    LastLayer (int i_size, int o_size, double rate, Layer &prev):
+        Layer(i_size, o_size, rate), previous{&prev}
+    {
+        output_value = create_matrix(output_size, 1, 1);
+    };
     matrix calc();
     void backpropagation();
 };
@@ -359,8 +374,8 @@ matrix LastLayer::calc() {
         }
     }
     for (int i = 0; i < output_size; i++) {
-        mid_value[i][0] = mid_value[i][0] - max;
-        sum += exp(mid_value[i][0]);
+        exponents[i][0] = exp(mid_value[i][0] - max);
+        sum += exponents[i][0];
     }
 
     for (int i = 0; i < output_size; i++) {
@@ -412,7 +427,7 @@ void LastLayer::backpropagation() {
 
     for (int i = 0; i < output_size; i ++) {
         for (int j = 0; j < input_size + 1; j ++) {
-            weights[i][j] -= 0.1 * gradients[i][j];
+            weights[i][j] -= learning_rate * gradients[i][j];
         }
     }
 
@@ -427,24 +442,26 @@ class NeuralNetwork {
 
     matrix calc(matrix);
     void set_random_weights();
-    void backpropagation(matrix, matrix);
-    NeuralNetwork(vector <int>);
+    matrix backpropagation(matrix, matrix);
+    NeuralNetwork(vector <int>, double);
     void print();
 };
 
 
-NeuralNetwork::NeuralNetwork (vector <int> layers):
-    first{FirstLayer(layers[0], layers[1])} {
+NeuralNetwork::NeuralNetwork (vector <int> layers, double learning_rate):
+    first{FirstLayer(layers[0], layers[1], learning_rate)} {
     // last{_last[0]} {
     mids = vector< MidLayer > (layers.size() - 3);
-    mids[0] = MidLayer(layers[1], layers[2], first);
+    mids[0] = MidLayer(layers[1], layers[2], learning_rate, first);
     for (int i = 1; i < mids.size(); i ++) {
-        mids[i] = MidLayer(layers[i + 1], layers[i + 2], mids[i - 1]);
+        mids[i] = MidLayer(
+            layers[i + 1], layers[i + 2], learning_rate, mids[i - 1]);
     }
     _last.push_back(
         LastLayer(
             layers[layers.size() - 2],
             layers[layers.size() - 1],
+            learning_rate,
             mids[mids.size() - 1]
         )
     );
@@ -473,7 +490,7 @@ matrix NeuralNetwork::calc(matrix input) {
 }
 
 
-void NeuralNetwork::backpropagation(matrix input, matrix proper_output) {
+matrix NeuralNetwork::backpropagation(matrix input, matrix proper_output) {
     matrix result = calc(input);
     _last[0].set_correct_output(proper_output);
     _last[0].backpropagation();
@@ -481,6 +498,7 @@ void NeuralNetwork::backpropagation(matrix input, matrix proper_output) {
         mids[i].backpropagation();
     }
     first.backpropagation();
+    return result;
 }
 
 
@@ -505,34 +523,34 @@ void read_weigts (ifstream& file_stream, Layer& layer, int rows, int columns) {
 }
 
 
-LastLayer load_last (ifstream& file_stream, Layer &prev) {
-    int rows, columns;
-    file_stream >> rows;
-    file_stream >> columns;
-    LastLayer new_layer = LastLayer(columns, rows, prev);
-    read_weigts(file_stream, new_layer, rows, columns);
-    return new_layer;
-}
+// LastLayer load_last (ifstream& file_stream, Layer &prev) {
+//     int rows, columns;
+//     file_stream >> rows;
+//     file_stream >> columns;
+//     LastLayer new_layer = LastLayer(columns, rows, prev);
+//     read_weigts(file_stream, new_layer, rows, columns);
+//     return new_layer;
+// }
 
 
-MidLayer load (ifstream& file_stream, Layer &prev) {
-    int rows, columns;
-    file_stream >> rows;
-    file_stream >> columns;
-    MidLayer new_layer = MidLayer(columns, rows, prev);
-    read_weigts(file_stream, new_layer, rows, columns);
-    return new_layer;
-}
+// MidLayer load (ifstream& file_stream, Layer &prev) {
+//     int rows, columns;
+//     file_stream >> rows;
+//     file_stream >> columns;
+//     MidLayer new_layer = MidLayer(columns, rows, prev);
+//     read_weigts(file_stream, new_layer, rows, columns);
+//     return new_layer;
+// }
 
 
-FirstLayer load (ifstream& file_stream) {
-    int rows, columns;
-    file_stream >> rows;
-    file_stream >> columns;
-    FirstLayer new_layer = FirstLayer(columns, rows);
-    read_weigts(file_stream, new_layer, rows, columns);
-    return new_layer;
-}
+// FirstLayer load (ifstream& file_stream) {
+//     int rows, columns;
+//     file_stream >> rows;
+//     file_stream >> columns;
+//     FirstLayer new_layer = FirstLayer(columns, rows);
+//     read_weigts(file_stream, new_layer, rows, columns);
+//     return new_layer;
+// }
 
 
 void read_layer_weights (ifstream& file_stream, Layer &layer) {
@@ -550,7 +568,7 @@ NeuralNetwork load_neural_network(ifstream& file_stream) {
     for (int i = 0; i < layers; i++) {
         file_stream >> layers_shape[i];
     }
-    NeuralNetwork neural_network = NeuralNetwork(layers_shape);
+    NeuralNetwork neural_network = NeuralNetwork(layers_shape, 0.001);
     read_layer_weights(file_stream, neural_network.first);
     for (int i = 0; i < neural_network.mids.size(); i++) {
         read_layer_weights(file_stream, neural_network.mids[i]);
@@ -603,20 +621,54 @@ vector< neural_network_file > load_inputs() {
 }
 
 
-int main()
+int main(int argc, char **argv)
 {
     srand(123);
+    if (argc < 3) {
+        fprintf(stderr, "Error: Program require more arguments\n");
+        return -1;
+    }
+    double epsilon = stof(argv[1]);
+    double learning_rate = stof(argv[2]);
+
+    int max_epochs = stoi(argv[3]);
+    bool random_weights;
+    if (argv[4] == "false" || argv[4] == "False")
+    {
+        random_weights = false;
+    }
+    else
+    {
+        random_weights = true;
+    }
+
     vector< neural_network_file > inputs = load_inputs();
     NeuralNetwork neural_network = NeuralNetwork(
-         {4096, 8192, 6144, 3072, 1024, 62});
-        // {4096, 16, 16, 8, 8, 62});
-    neural_network.set_random_weights();
+         {4096, 8192, 6144, 3072, 1024, 62}, learning_rate);
+         // {4096, 10, 10, 10, 10, 62}, learning_rate);
 
-    for (int i = 0; i < 1; i ++){
-        // neural_network.calc(inputs[0].input);
-        neural_network.backpropagation(inputs[0].input, inputs[0].output);
+    if (random_weights) {
+        neural_network.set_random_weights();
     }
-    print_m_t(neural_network._last[0].mid_value);
+
+    for (int epoch = 0; epoch < max_epochs; epoch++){
+        int counter = 0;
+        for (int i = 0; i < INPUTS; i++){
+            matrix result = neural_network.backpropagation(
+                inputs[i].input, inputs[i].output);
+            if (result[0][0] != result[0][0]) {
+                break;
+            }
+            print_m_t(result);
+
+            if (cmp_matrix(result, inputs[i].output)) {
+                counter++;
+            }
+        }
+        if ((float)counter / INPUTS > epsilon) {
+            break;
+        }
+    }
     // neural_network.print();
     return 0;
 }
