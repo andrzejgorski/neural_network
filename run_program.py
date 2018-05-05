@@ -28,7 +28,7 @@ def parse_args():
     )
     parser.add_argument(
         "--random",
-        help="maximum number of epochs",
+        help="if true, initial weights are set randomly; if false, initial weights are set to 1",
         type=bool,
         default=True
     )
@@ -41,6 +41,8 @@ def run_program():
     if args.training_data is not None:
         file_preparer = FilePreparer(args.training_data, 'inputs')
         file_preparer.prepare_files()
+    # RUN PROGRAM
+    # result = subprocess.check_output(program + (nn_file,) + (in_file,))
 
 
 if __name__ == "__main__":
