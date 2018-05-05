@@ -4,10 +4,12 @@ import os
 
 
 class FilePreparer(object):
-    def __init__(self):
+    def __init__(self, path, output_path):
         self.basewidth = 64
         self.counter = 0
         self.known_dirs = []
+        self.path = path
+        self.output_path = output_path
 
     def get_output(self, directory):
         if directory not in self.known_dirs:
@@ -24,18 +26,33 @@ class FilePreparer(object):
                     resized_img = img.resize(
                         (self.basewidth, self.basewidth), Image.ANTIALIAS)
                     pil_imgray = resized_img.convert('LA')
-                    output_img = np.array(list(pil_imgray.getdata(band=0)), float)
-                    with open('inputs/{:04d}.in'.format(self.counter), 'w') as f:
-                        f.write(' '.join([str(p/255) for p in output_img]) + '\n')
+                    output_img = np.array(
+                        list(pil_imgray.getdata(band=0)), float)
+
+                    file_output_path = os.path.join(
+                        self.output_path,
+                        '/{:04d}.in'.format(self.counter)
+                    )
+
+                    with open(file_output_path, 'w') as f:
+                        f.write(
+                            ' '.join([str(p/255) for p in output_img]) + '\n'
+                        )
                         f.write(self.get_output(directory))
 
                     self.counter += 1
 
     def prepare_files(self):
-        for subdir, dirs, files in os.walk('Training'):
-            for directory in dirs:
-                self.check_dir(subdir, directory)
+        if not (os.path.isfile(self.path)):
+            print('File is empty skipping step')
+        else:
+            print('Starting to prepare files.')
+            for subdir, dirs, files in os.walk(self.path):
+                for directory in dirs:
+                    self.check_dir(subdir, directory)
+            print('Ended preparing files.')
 
 
-fp = FilePreparer()
-fp.prepare_files()
+if __name__ == "__main__":
+    fp = FilePreparer()
+    fp.prepare_files()

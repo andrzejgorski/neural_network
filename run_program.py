@@ -1,5 +1,7 @@
-#!/usr/bin/python3
+#!/usr/bin/env python
+import sys
 import argparse
+from prepare_files import FilePreparer
 
 
 def parse_args():
@@ -7,7 +9,8 @@ def parse_args():
     parser.add_argument(
         "--training_data",
         help="training data path",
-        required=True,
+        default=None,
+        dest='training_data',
     )
     parser.add_argument(
         "--epsilon",
@@ -29,12 +32,15 @@ def parse_args():
         type=bool,
         default=True
     )
-    return parser.parse_args()
+    args = parser.parse_args(sys.argv[1:])
+    return args
 
 
 def run_program():
     args = parse_args()
-    print(args)
+    if args.training_data is not None:
+        file_preparer = FilePreparer(args.training_data, 'inputs')
+        file_preparer.prepare_files()
 
 
 if __name__ == "__main__":
