@@ -63,16 +63,43 @@ void print_m_t(matrix mat) {
 }
 
 
-void matrix_mult(matrix& first, matrix& second, matrix& out,
-                 int first_r, int second_c, int first_c) {
-    for (int b = 0; b < first_r; b++) {
-        for (int c = 0; c < second_c; c++) {
-            out[b][c] = 0;
-            for (int a = 0; a < first_c; a++) {
-                out[b][c] += first[b][a] * second[a][c];
-            }
+void matrix_copy(double *c_like_matrix, matrix& matrix, int rows, int columns) {
+    double (*matrix_ptr)[rows][columns] = (
+        double(*)[rows][columns]) c_like_matrix;
+
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < columns; j++) {
+            (*matrix_ptr)[i][j] = matrix[i][j];
         }
     }
+}
+
+
+void matrix_copy(matrix& matrix, double *c_like_matrix, int rows, int columns) {
+    double (*matrix_ptr)[rows][columns] = (
+        double(*)[rows][columns]) c_like_matrix;
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < columns; j++) {
+            matrix[i][j] = (*matrix_ptr)[i][j];
+        }
+    }
+}
+
+
+void matrix_mult(matrix& first, matrix& second, matrix& out,
+                 int first_r, int second_c, int first_c) {
+    double *first_ptr = (double*) malloc(first_r * first_c * sizeof(double));
+    double *second_ptr = (double*) malloc(first_c * second_c * sizeof(double));
+    double *out_ptr = (double*) malloc(first_r * second_c * sizeof(double));
+
+    matrix_copy(first_ptr, first, first_r, first_c);
+    matrix_copy(second_ptr, second, first_c, second_c);
+    matrix_mult(first_ptr, second_ptr, out_ptr, first_r, second_c, first_c);
+    matrix_copy(out, out_ptr, first_r, second_c);
+
+    free(first_ptr);
+    free(second_ptr);
+    free(out_ptr);
 }
 
 
