@@ -123,7 +123,14 @@ void matrix_mult_tf_to_ss(matrix& first, matrix& second, matrix& out,
     } else {
         matrix_mult_tf_to(first_ptr, second_ptr, out_ptr, first_r, second_c, first_c);
     }
-    matrix_copy(out, out_ptr, first_r, second_c);
+    double (*out_ptr_map)[first_r][second_c] = (
+        double(*)[first_r][second_c]) out_ptr;
+
+    for (int i = 0; i < first_r; i++) {
+        for (int j = 0; j < second_c; j++) {
+            out[j][i] = (*out_ptr_map)[i][j];
+        }
+    }
 
     free(first_ptr);
     free(second_ptr);
@@ -513,14 +520,6 @@ class NeuralNetwork {
     void set_random_weights();
     matrix backpropagation(matrix, matrix);
     NeuralNetwork(vector <int>, double, bool);
-    ~NeuralNetwork(){
-        if (first != NULL) {
-            free(first);
-        }
-        if (last != NULL) {
-            free(last);
-        }
-    }
     void print();
 };
 
@@ -656,11 +655,9 @@ int main(int argc, char **argv)
     vector< neural_network_file > inputs = load_inputs();
     NeuralNetwork neural_network = NeuralNetwork(
          {4096, 8192, 6144, 3072, 1024, 62}, learning_rate, false);
-         // {10, 10, 10, 3}, learning_rate, false);
 
     NeuralNetwork gpu_neural_network = NeuralNetwork(
          {4096, 8192, 6144, 3072, 1024, 62}, learning_rate, true);
-         // {10, 10, 10, 3}, learning_rate, true);
 
     if (random_weights) {
         neural_network.set_random_weights();
@@ -670,29 +667,33 @@ int main(int argc, char **argv)
     for (int epoch = 0; epoch < max_epochs; epoch++){
         int counter = 0;
         for (int i = 0; i < INPUTS; i++){
+            struct timespec cpu_start, cpu_stop;
+            clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &cpu_start);
             matrix result = neural_network.backpropagation(
                 inputs[i].input, inputs[i].output);
+            clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &cpu_stop);
+            double cpu_time = (cpu_stop.tv_sec - cpu_start.tv_sec) * 1e3 + (cpu_stop.tv_nsec - cpu_start.tv_nsec) / 1e6;
+            printf( "CPU execution time:  %3.1f ms\n", cpu_time);
 
+            struct timespec gpu_start, gpu_stop;
+            clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &gpu_start);
             matrix gpu_result = gpu_neural_network.backpropagation(
                 inputs[i].input, inputs[i].output);
+            clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &gpu_stop);
+            double gpu_time = (gpu_stop.tv_sec - gpu_start.tv_sec) * 1e3 + (gpu_stop.tv_nsec - gpu_start.tv_nsec) / 1e6;
+            printf( "GPU execution time:  %3.1f ms\n", gpu_time);
 
-            if (result[0][0] != result[0][0] or gpu_result[0][0] != gpu_result[0][0]) {
-                break;
-            }
+            // if (result[0][0] != result[0][0] or gpu_result[0][0] != gpu_result[0][0]) {
+            //     break;
+            // }
 
-            if (!matrix_same(result, gpu_result)) {
-                puts("matrix_different");
-                break;
-            }
-
-            if (matrix_same(result, inputs[i].output)) {
-                counter++;
-            }
+            // if (matrix_same(result, inputs[i].output)) {
+            //     counter++;
+            // }
         }
         if ((float)counter / INPUTS > epsilon) {
             break;
         }
     }
-    // neural_network.print();
     return 0;
 }
