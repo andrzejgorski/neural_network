@@ -87,14 +87,20 @@ void matrix_copy(matrix& matrix, double *c_like_matrix, int rows, int columns) {
 
 
 void matrix_mult(matrix& first, matrix& second, matrix& out,
-                 int first_r, int second_c, int first_c) {
+                 int first_r, int second_c, int first_c, bool gpu) {
     double *first_ptr = (double*) malloc(first_r * first_c * sizeof(double));
     double *second_ptr = (double*) malloc(first_c * second_c * sizeof(double));
     double *out_ptr = (double*) malloc(first_r * second_c * sizeof(double));
 
     matrix_copy(first_ptr, first, first_r, first_c);
     matrix_copy(second_ptr, second, first_c, second_c);
-    matrix_mult(first_ptr, second_ptr, out_ptr, first_r, second_c, first_c);
+
+    if (gpu) {
+        matrix_mult_gpu(first_ptr, second_ptr, out_ptr, first_r, second_c, first_c);
+    } else {
+        matrix_mult(first_ptr, second_ptr, out_ptr, first_r, second_c, first_c);
+    }
+
     matrix_copy(out, out_ptr, first_r, second_c);
 
     free(first_ptr);
@@ -104,35 +110,54 @@ void matrix_mult(matrix& first, matrix& second, matrix& out,
 
 
 void matrix_mult_tf_to_ss(matrix& first, matrix& second, matrix& out,
-                          int first_r, int second_c, int first_c) {
-    for (int b = 0; b < first_r; b++) {
-        for (int c = 0; c < second_c; c++) {
-            out[c][b] = 0;
-            for (int a = 0; a < first_c; a++) {
-                out[c][b] += first[a][b] * second[a][c];
-            }
-        }
+                          int first_r, int second_c, int first_c, bool gpu) {
+    double *first_ptr = (double*) malloc(first_r * first_c * sizeof(double));
+    double *second_ptr = (double*) malloc(first_c * second_c * sizeof(double));
+    double *out_ptr = (double*) malloc(first_r * second_c * sizeof(double));
+
+    matrix_copy(first_ptr, first, first_r, first_c);
+    matrix_copy(second_ptr, second, first_c, second_c);
+
+    if (gpu) {
+        matrix_mult_gpu_tf_to(first_ptr, second_ptr, out_ptr, first_r, second_c, first_c);
+    } else {
+        matrix_mult_tf_to(first_ptr, second_ptr, out_ptr, first_r, second_c, first_c);
     }
+    matrix_copy(out, out_ptr, first_r, second_c);
+
+    free(first_ptr);
+    free(second_ptr);
+    free(out_ptr);
 }
 
 
 void matrix_mult_ts(matrix& first, matrix& second, matrix& out,
-                    int first_r, int second_c, int first_c) {
-    for (int b = 0; b < first_r; b++) {
-        for (int c = 0; c < second_c; c++) {
-            out[b][c] = 0;
-            for (int a = 0; a < first_c; a++) {
-                out[b][c] += first[b][a] * second[c][a];
-            }
-        }
+                    int first_r, int second_c, int first_c, bool gpu) {
+    double *first_ptr = (double*) malloc(first_r * first_c * sizeof(double));
+    double *second_ptr = (double*) malloc(first_c * second_c * sizeof(double));
+    double *out_ptr = (double*) malloc(first_r * second_c * sizeof(double));
+
+    matrix_copy(first_ptr, first, first_r, first_c);
+    matrix_copy(second_ptr, second, first_c, second_c);
+    if (gpu) {
+        matrix_mult_gpu_ts(first_ptr, second_ptr, out_ptr, first_r, second_c, first_c);
+    } else {
+        matrix_mult_ts(first_ptr, second_ptr, out_ptr, first_r, second_c, first_c);
     }
+    matrix_copy(out, out_ptr, first_r, second_c);
+
+    free(first_ptr);
+    free(second_ptr);
+    free(out_ptr);
 }
 
 
-bool cmp_matrix(matrix first, matrix second) {
+bool matrix_same(matrix first, matrix second) {
     for (int i = 0; i < first.size(); i++) {
         for (int j = 0; j < first[0].size(); j++) {
             if (first[i][j] != second[i][j]) {
+                printf("values: at index %d %d are different %f %f\n",
+                    i, j, first[i][j], second[i][j]);
                 return false;
             }
         }
@@ -149,6 +174,7 @@ double fRand(double fMin, double fMax) {
 
 class Layer {
     public:
+    bool GPU;
     int input_size, output_size;
     double learning_rate;
     matrix mid_value, mid_error;
@@ -164,6 +190,11 @@ class Layer {
         output_error = create_matrix(output_size, 1);
         weights = create_matrix(output_size, input_size + 1, 1);
         gradients = create_matrix(output_size, input_size + 1);
+    }
+    Layer (int i_size, int o_size, double rate, bool gpu):
+        Layer(i_size, o_size, rate)
+    {
+        GPU = gpu;
     }
     Layer () {};
     virtual matrix calc() {};
@@ -227,7 +258,7 @@ void Layer::print() {
 class FirstLayer:public Layer {
     public:
     matrix input_value;
-    FirstLayer (int, int, double);
+    FirstLayer (int, int, double, bool);
     void print ();
     matrix calc ();
     void init_input(matrix input) {
@@ -246,7 +277,8 @@ matrix FirstLayer::calc() {
         mid_value,
         output_size,
         1,
-        input_size + 1
+        input_size + 1,
+        GPU
     );
 
     for (int i = 0; i < output_size; i++) {
@@ -274,7 +306,8 @@ void FirstLayer::backpropagation() {
         gradients,
         output_size,
         input_size + 1,
-        1
+        1,
+        GPU
     );
     for (int i = 0; i < output_size; i ++) {
         for (int j = 0; j < input_size + 1; j ++) {
@@ -284,8 +317,8 @@ void FirstLayer::backpropagation() {
 }
 
 
-FirstLayer::FirstLayer (int i_size, int o_size, double rate):
-        Layer (i_size, o_size, rate) {
+FirstLayer::FirstLayer (int i_size, int o_size, double rate, bool gpu):
+        Layer (i_size, o_size, rate, gpu) {
     input_value = create_matrix(input_size + 1, 1, 1);
 }
 
@@ -306,8 +339,8 @@ void FirstLayer::print() {
 class MidLayer:public Layer {
     public:
     Layer *previous;
-    MidLayer (int i_size, int o_size, double rate, Layer &prev):
-        Layer(i_size, o_size, rate), previous{&prev} {};
+    MidLayer (int i_size, int o_size, double rate, Layer &prev, bool gpu):
+        Layer(i_size, o_size, rate, gpu), previous{&prev} {};
     MidLayer () {};
     matrix calc();
     void backpropagation();
@@ -321,7 +354,8 @@ matrix MidLayer::calc() {
         mid_value,
         output_size,
         1,
-        input_size + 1
+        input_size + 1,
+        GPU
     );
 
     for (int i = 0; i < output_size; i++) {
@@ -349,7 +383,8 @@ void MidLayer::backpropagation() {
         gradients,
         output_size,
         input_size + 1,
-        1
+        1,
+        GPU
     );
 
     matrix_mult_tf_to_ss(
@@ -358,7 +393,8 @@ void MidLayer::backpropagation() {
         previous->output_error,
         1,
         input_size,
-        output_size
+        output_size,
+        GPU
     );
 
     for (int i = 0; i < output_size; i ++) {
@@ -372,8 +408,8 @@ void MidLayer::backpropagation() {
 class LastLayer:public Layer {
     public:
     Layer *previous;
-    LastLayer (int i_size, int o_size, double rate, Layer &prev):
-        Layer(i_size, o_size, rate), previous{&prev}
+    LastLayer (int i_size, int o_size, double rate, Layer &prev, bool gpu):
+        Layer(i_size, o_size, rate, gpu), previous{&prev}
     {
         output_value = create_matrix(output_size, 1, 1);
     };
@@ -389,7 +425,8 @@ matrix LastLayer::calc() {
         mid_value,
         output_size,
         1,
-        input_size + 1
+        input_size + 1,
+        GPU
     );
 
     // Softmax stable
@@ -432,7 +469,8 @@ void LastLayer::backpropagation() {
         mid_error,
         output_size,
         1,
-        output_size
+        output_size,
+        GPU
     );
 
     matrix_mult_ts(
@@ -441,7 +479,8 @@ void LastLayer::backpropagation() {
         gradients,
         output_size,
         input_size + 1,
-        1
+        1,
+        GPU
     );
 
     matrix_mult_tf_to_ss(
@@ -450,7 +489,8 @@ void LastLayer::backpropagation() {
         previous->output_error,
         1,
         input_size,
-        output_size
+        output_size,
+        GPU
     );
 
     for (int i = 0; i < output_size; i ++) {
@@ -464,78 +504,88 @@ void LastLayer::backpropagation() {
 
 class NeuralNetwork {
     public:
-    FirstLayer first;
+    bool GPU;
+    FirstLayer *first;
     vector< MidLayer > mids;
-    vector< LastLayer > _last;
+    LastLayer *last;
 
     matrix calc(matrix);
     void set_random_weights();
     matrix backpropagation(matrix, matrix);
-    NeuralNetwork(vector <int>, double);
+    NeuralNetwork(vector <int>, double, bool);
+    ~NeuralNetwork(){
+        if (first != NULL) {
+            free(first);
+        }
+        if (last != NULL) {
+            free(last);
+        }
+    }
     void print();
 };
 
 
-NeuralNetwork::NeuralNetwork (vector <int> layers, double learning_rate):
-    first{FirstLayer(layers[0], layers[1], learning_rate)} {
+NeuralNetwork::NeuralNetwork (vector <int> layers, double learning_rate, bool gpu)
+{
+    GPU = gpu;
+    first = new FirstLayer(layers[0], layers[1], learning_rate, gpu);
     mids = vector< MidLayer > (layers.size() - 3);
-    mids[0] = MidLayer(layers[1], layers[2], learning_rate, first);
+    mids[0] = MidLayer(layers[1], layers[2], learning_rate, *first, gpu);
     for (int i = 1; i < mids.size(); i ++) {
         mids[i] = MidLayer(
-            layers[i + 1], layers[i + 2], learning_rate, mids[i - 1]);
+            layers[i + 1], layers[i + 2], learning_rate, mids[i - 1], gpu);
     }
-    _last.push_back(
-        LastLayer(
+    last = new LastLayer(
             layers[layers.size() - 2],
             layers[layers.size() - 1],
             learning_rate,
-            mids[mids.size() - 1]
-        )
-    );
+            mids[mids.size() - 1],
+            gpu
+        );
 }
 
 
 // DEBUG FUNCTION
 void NeuralNetwork::print () {
     cout << "======== First Layer ========" << endl;
-    first.print();
+    first->print();
     for (int i = 0; i < mids.size(); i ++) {
         cout << "======== Mid Layer no " << i + 1 << " ======== " << endl;
         mids[i].print();
     }
     cout << "======== Last Layer ========" << endl;
-    _last[0].print();
+    last->print();
 }
 
 
 matrix NeuralNetwork::calc(matrix input) {
-    first.init_input(input);
-    first.calc();
+    first->init_input(input);
+    first->calc();
     for (int i = 0; i < mids.size(); i ++) {
         mids[i].calc();
     }
-    return _last[0].calc();
+    return last->calc();
 }
 
 
 matrix NeuralNetwork::backpropagation(matrix input, matrix proper_output) {
     matrix result = calc(input);
-    _last[0].set_correct_output(proper_output);
-    _last[0].backpropagation();
+    last->set_correct_output(proper_output);
+    last->backpropagation();
     for (int i = mids.size() - 1; i >= 0; i --) {
         mids[i].backpropagation();
     }
-    first.backpropagation();
+    first->backpropagation();
     return result;
 }
 
 
 void NeuralNetwork::set_random_weights() {
-    first.set_random_weights();
+    first->set_random_weights();
     for (auto &layer: mids) {
         layer.set_random_weights();
     }
-    _last[0].set_random_weights();
+    last->set_random_weights();
 }
 
 
@@ -605,11 +655,16 @@ int main(int argc, char **argv)
 
     vector< neural_network_file > inputs = load_inputs();
     NeuralNetwork neural_network = NeuralNetwork(
-         {4096, 8192, 6144, 3072, 1024, 62}, learning_rate);
-         // {4096, 10, 10, 10, 10, 62}, learning_rate);
+         {4096, 8192, 6144, 3072, 1024, 62}, learning_rate, false);
+         // {10, 10, 10, 3}, learning_rate, false);
+
+    NeuralNetwork gpu_neural_network = NeuralNetwork(
+         {4096, 8192, 6144, 3072, 1024, 62}, learning_rate, true);
+         // {10, 10, 10, 3}, learning_rate, true);
 
     if (random_weights) {
         neural_network.set_random_weights();
+        gpu_neural_network.set_random_weights();
     }
 
     for (int epoch = 0; epoch < max_epochs; epoch++){
@@ -617,12 +672,20 @@ int main(int argc, char **argv)
         for (int i = 0; i < INPUTS; i++){
             matrix result = neural_network.backpropagation(
                 inputs[i].input, inputs[i].output);
-            if (result[0][0] != result[0][0]) {
+
+            matrix gpu_result = gpu_neural_network.backpropagation(
+                inputs[i].input, inputs[i].output);
+
+            if (result[0][0] != result[0][0] or gpu_result[0][0] != gpu_result[0][0]) {
                 break;
             }
-            print_m_t(result);
 
-            if (cmp_matrix(result, inputs[i].output)) {
+            if (!matrix_same(result, gpu_result)) {
+                puts("matrix_different");
+                break;
+            }
+
+            if (matrix_same(result, inputs[i].output)) {
                 counter++;
             }
         }

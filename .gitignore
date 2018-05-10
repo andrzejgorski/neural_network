@@ -4,5 +4,6 @@
 *.ptx
 *.cubin
 *.fatbin
+*.o
 neural_network
 Training/*
