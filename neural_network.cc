@@ -7,6 +7,7 @@
 #include <cmath>
 #include <iomanip>
 #include <string.h>
+#include "matrix_mult.h"
 
 
 using namespace std;
@@ -450,7 +451,6 @@ class NeuralNetwork {
 
 NeuralNetwork::NeuralNetwork (vector <int> layers, double learning_rate):
     first{FirstLayer(layers[0], layers[1], learning_rate)} {
-    // last{_last[0]} {
     mids = vector< MidLayer > (layers.size() - 3);
     mids[0] = MidLayer(layers[1], layers[2], learning_rate, first);
     for (int i = 1; i < mids.size(); i ++) {
@@ -468,6 +468,7 @@ NeuralNetwork::NeuralNetwork (vector <int> layers, double learning_rate):
 }
 
 
+// DEBUG FUNCTION
 void NeuralNetwork::print () {
     cout << "======== First Layer ========" << endl;
     first.print();
@@ -508,73 +509,6 @@ void NeuralNetwork::set_random_weights() {
         layer.set_random_weights();
     }
     _last[0].set_random_weights();
-}
-
-
-// Loading function
-
-
-void read_weigts (ifstream& file_stream, Layer& layer, int rows, int columns) {
-    for (int i = 0; i < rows; i ++) {
-        for (int j = 0; j < columns; j ++) {
-            file_stream >> layer.weights[i][j];
-        }
-    }
-}
-
-
-// LastLayer load_last (ifstream& file_stream, Layer &prev) {
-//     int rows, columns;
-//     file_stream >> rows;
-//     file_stream >> columns;
-//     LastLayer new_layer = LastLayer(columns, rows, prev);
-//     read_weigts(file_stream, new_layer, rows, columns);
-//     return new_layer;
-// }
-
-
-// MidLayer load (ifstream& file_stream, Layer &prev) {
-//     int rows, columns;
-//     file_stream >> rows;
-//     file_stream >> columns;
-//     MidLayer new_layer = MidLayer(columns, rows, prev);
-//     read_weigts(file_stream, new_layer, rows, columns);
-//     return new_layer;
-// }
-
-
-// FirstLayer load (ifstream& file_stream) {
-//     int rows, columns;
-//     file_stream >> rows;
-//     file_stream >> columns;
-//     FirstLayer new_layer = FirstLayer(columns, rows);
-//     read_weigts(file_stream, new_layer, rows, columns);
-//     return new_layer;
-// }
-
-
-void read_layer_weights (ifstream& file_stream, Layer &layer) {
-    int rows, columns;
-    file_stream >> rows;
-    file_stream >> columns;
-    read_weigts(file_stream, layer, rows, columns);
-}
-
-
-NeuralNetwork load_neural_network(ifstream& file_stream) {
-    int layers;
-    file_stream >> layers;
-    vector< int > layers_shape = vector< int > (layers, 0);
-    for (int i = 0; i < layers; i++) {
-        file_stream >> layers_shape[i];
-    }
-    NeuralNetwork neural_network = NeuralNetwork(layers_shape, 0.001);
-    read_layer_weights(file_stream, neural_network.first);
-    for (int i = 0; i < neural_network.mids.size(); i++) {
-        read_layer_weights(file_stream, neural_network.mids[i]);
-    }
-    read_layer_weights(file_stream, neural_network._last[0]);
-    return neural_network;
 }
 
 
