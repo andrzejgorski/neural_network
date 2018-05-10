@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+import subprocess
+import os
 import sys
 import argparse
 from prepare_files import FilePreparer
@@ -42,7 +44,13 @@ def run_program():
         file_preparer = FilePreparer(args.training_data, 'inputs')
         file_preparer.prepare_files()
     # RUN PROGRAM
-    # result = subprocess.check_output(program + (nn_file,) + (in_file,))
+    os.system(' '.join((
+        './neural_network',
+        str(args.epsilon),
+        str(args.learnig_rate),
+        str(args.epochs),
+        str(args.random),
+    )))
 
 
 if __name__ == "__main__":
