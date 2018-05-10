@@ -19,7 +19,7 @@ def parse_args():
         help="treshhold error value"
     )
     parser.add_argument(
-        "--learnig_rate",
+        "--learning_rate",
         help="learning rate for backpropagation",
         type=float,
         default=0.001,
@@ -47,7 +47,7 @@ def run_program():
     os.system(' '.join((
         './neural_network',
         str(args.epsilon),
-        str(args.learnig_rate),
+        str(args.learning_rate),
         str(args.epochs),
         str(args.random),
     )))
