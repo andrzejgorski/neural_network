@@ -654,17 +654,20 @@ int main(int argc, char **argv)
         neural_network.set_random_weights();
         gpu_neural_network.set_random_weights();
     }
+    double sum_cpu_times = 0;
+    double sum_gpu_times = 0;
 
     for (int epoch = 0; epoch < max_epochs; epoch++){
         int counter = 0;
         for (int i = 0; i < INPUTS; i++){
+            puts("loop");
             struct timespec cpu_start, cpu_stop;
             clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &cpu_start);
             matrix result = neural_network.backpropagation(
                 inputs[i].input, inputs[i].output);
             clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &cpu_stop);
             double cpu_time = (cpu_stop.tv_sec - cpu_start.tv_sec) * 1e3 + (cpu_stop.tv_nsec - cpu_start.tv_nsec) / 1e6;
-            printf( "CPU execution time:  %3.1f ms\n", cpu_time);
+            sum_cpu_times += cpu_time;
 
             struct timespec gpu_start, gpu_stop;
             clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &gpu_start);
@@ -672,7 +675,7 @@ int main(int argc, char **argv)
                 inputs[i].input, inputs[i].output);
             clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &gpu_stop);
             double gpu_time = (gpu_stop.tv_sec - gpu_start.tv_sec) * 1e3 + (gpu_stop.tv_nsec - gpu_start.tv_nsec) / 1e6;
-            printf( "GPU execution time:  %3.1f ms\n", gpu_time);
+            sum_gpu_times += gpu_time;
 
             // if (result[0][0] != result[0][0] or gpu_result[0][0] != gpu_result[0][0]) {
             //     break;
@@ -686,5 +689,7 @@ int main(int argc, char **argv)
             break;
         }
     }
+    printf( "CPU execution time:  %3.1f ms\n", sum_cpu_times/INPUTS);
+    printf( "GPU execution time:  %3.1f ms\n", sum_gpu_times/INPUTS);
     return 0;
 }
