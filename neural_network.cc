@@ -115,7 +115,7 @@ void matrix_mult_tf_to_ss(matrix& first, matrix& second, matrix& out,
     double *second_ptr = (double*) malloc(first_c * second_c * sizeof(double));
     double *out_ptr = (double*) malloc(first_r * second_c * sizeof(double));
 
-    matrix_copy(first_ptr, first, first_r, first_c);
+    matrix_copy(first_ptr, first, first_c, first_r);
     matrix_copy(second_ptr, second, first_c, second_c);
 
     if (gpu) {
@@ -123,14 +123,7 @@ void matrix_mult_tf_to_ss(matrix& first, matrix& second, matrix& out,
     } else {
         matrix_mult_tf_to(first_ptr, second_ptr, out_ptr, first_r, second_c, first_c);
     }
-    double (*out_ptr_map)[first_r][second_c] = (
-        double(*)[first_r][second_c]) out_ptr;
-
-    for (int i = 0; i < first_r; i++) {
-        for (int j = 0; j < second_c; j++) {
-            out[j][i] = (*out_ptr_map)[i][j];
-        }
-    }
+    matrix_copy(out, out_ptr, second_c, first_r);
 
     free(first_ptr);
     free(second_ptr);
@@ -145,7 +138,7 @@ void matrix_mult_ts(matrix& first, matrix& second, matrix& out,
     double *out_ptr = (double*) malloc(first_r * second_c * sizeof(double));
 
     matrix_copy(first_ptr, first, first_r, first_c);
-    matrix_copy(second_ptr, second, first_c, second_c);
+    matrix_copy(second_ptr, second, second_c, first_c);
     if (gpu) {
         matrix_mult_gpu_ts(first_ptr, second_ptr, out_ptr, first_r, second_c, first_c);
     } else {
@@ -163,8 +156,6 @@ bool matrix_same(matrix first, matrix second) {
     for (int i = 0; i < first.size(); i++) {
         for (int j = 0; j < first[0].size(); j++) {
             if (first[i][j] != second[i][j]) {
-                printf("values: at index %d %d are different %f %f\n",
-                    i, j, first[i][j], second[i][j]);
                 return false;
             }
         }
@@ -687,9 +678,9 @@ int main(int argc, char **argv)
             //     break;
             // }
 
-            // if (matrix_same(result, inputs[i].output)) {
-            //     counter++;
-            // }
+            if (matrix_same(result, inputs[i].output)) {
+                counter++;
+            }
         }
         if ((float)counter / INPUTS > epsilon) {
             break;
