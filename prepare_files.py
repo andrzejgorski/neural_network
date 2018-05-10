@@ -3,6 +3,9 @@ import numpy as np
 import os
 
 
+dir_path = os.path.dirname(os.path.realpath(__file__))
+
+
 class FilePreparer(object):
     def __init__(self, path, output_path):
         self.basewidth = 64
@@ -29,8 +32,8 @@ class FilePreparer(object):
                     output_img = np.array(
                         list(pil_imgray.getdata(band=0)), float)
 
-                    file_output_path = os.path.join(
-                        self.output_path,
+                    file_output_path = (
+                        self.output_path +
                         '/{:04d}.in'.format(self.counter)
                     )
 
@@ -43,14 +46,16 @@ class FilePreparer(object):
                     self.counter += 1
 
     def prepare_files(self):
-        if not (os.path.isfile(self.path)):
-            print('File is empty skipping step')
-        else:
-            print('Starting to prepare files.')
-            for subdir, dirs, files in os.walk(self.path):
-                for directory in dirs:
-                    self.check_dir(subdir, directory)
-            print('Ended preparing files.')
+        path_from_dir = os.path.join(dir_path, self.path)
+        print('Starting to prepare files.')
+        try:
+            os.mkdir(self.output_path)
+        except:
+            pass
+        for subdir, dirs, files in os.walk(self.path):
+            for directory in dirs:
+                self.check_dir(subdir, directory)
+        print('Ended preparing files.')
 
 
 if __name__ == "__main__":
