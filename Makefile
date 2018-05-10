@@ -5,7 +5,7 @@ objects = matrix_mult.o neural_network.o
 # all: $(objects)
 # 	$(CC) -arch=sm_20 $(objects) -o neural_network $(CFLAGS)
 
-nn_cc: neural_network.cc
+nn_cc: neural_network.cc matrix_mult.o
 	$(CC) -o neural_network matrix_mult.o neural_network.cc $(CFLAGS)
 
 %.o: %.cu
